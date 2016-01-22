@@ -41,14 +41,13 @@ public class cBluetooth{
     public final static int BL_INCORRECT_ADDRESS = 2;		// incorrect MAC-address
     public final static int BL_REQUEST_ENABLE = 3;			// request enable Bluetooth
     public final static int BL_SOCKET_FAILED = 4;			// socket error
-    public final static int RECIEVE_MESSAGE = 5;			// receive message
+    public final static int RECEIVE_MESSAGE = 5;			// receive message
       
     cBluetooth(Context context, Handler handler){
     	btAdapter = BluetoothAdapter.getDefaultAdapter();
     	mHandler = handler;
         if (btAdapter == null) {
         	mHandler.sendEmptyMessage(BL_NOT_AVAILABLE);
-            return;
         }
     }
    
@@ -77,9 +76,7 @@ public class cBluetooth{
     }
     
     public boolean BT_Connect(String address, boolean listen_InStream) {   	
-    	Log.d(TAG, "...On Resume...");  
-    	
-    	boolean connected = false;
+    	Log.d(TAG, "...On resume...");
     	
     	if(!BluetoothAdapter.checkBluetoothAddress(address)){
     		mHandler.sendEmptyMessage(BL_INCORRECT_ADDRESS);
@@ -119,18 +116,17 @@ public class cBluetooth{
 	     
 	        try {
 	        	outStream = btSocket.getOutputStream();
-	        	connected = true;
 	        } catch (IOException e) {
 	        	Log.e(TAG, "In BT_Connect() output stream creation failed:" + e.getMessage());
 	        	mHandler.sendEmptyMessage(BL_SOCKET_FAILED);
 	        	return false;
 	        }
-			if(listen_InStream) {		// whether to create a thread for the incoming data (����� �� ��������� ����� ��� �������� ������)
+			if(listen_InStream) {		// whether to create a thread for the incoming data
 				mConnectedThread = new ConnectedThread();
 		    	mConnectedThread.start();
     		}
     	}
-    	return connected;
+    	return true;
 	}
            
     public void BT_onPause() {
@@ -151,7 +147,6 @@ public class cBluetooth{
 	    	} catch (IOException e2) {
 	        	Log.e(TAG, "In onPause() and failed to close socket." + e2.getMessage());
 	        	mHandler.sendEmptyMessage(BL_SOCKET_FAILED);
-	        	return;
 	    	}
     	}
     }
@@ -167,7 +162,6 @@ public class cBluetooth{
 	        } catch (IOException e) {
 	        	Log.e(TAG, "In onResume() exception occurred during write: " + e.getMessage());
 	        	mHandler.sendEmptyMessage(BL_SOCKET_FAILED);
-	        	return;      
 	        }
         } else Log.e(TAG, "Error Send data: outStream is Null");
 	}
@@ -197,9 +191,9 @@ public class cBluetooth{
     		// Keep listening to the InputStream until an exception occurs
     		while (true) {
     			try {
-    				// Read from the InputStream
+    				// read from the InputStream
     				bytes = mmInStream.read(buffer);
-    				mHandler.obtainMessage(RECIEVE_MESSAGE, bytes, -1, buffer).sendToTarget();
+    				mHandler.obtainMessage(RECEIVE_MESSAGE, bytes, -1, buffer).sendToTarget();
     			} catch (IOException e) {
     				break;
     			}

@@ -50,6 +50,9 @@ public class MainActivity extends Activity implements OnClickListener {
 	    
 	    btnActAbout = (Button) findViewById(R.id.button_about);
 	    btnActAbout.setOnClickListener(this);
+
+		Button btnActBluetooth = (Button) findViewById(R.id.button_bluetooth);
+		btnActBluetooth.setOnClickListener(this);
 	}
 
 	public void onClick(View v) {
@@ -77,7 +80,11 @@ public class MainActivity extends Activity implements OnClickListener {
 	    case R.id.button_about:
 	    	Intent intent_about = new Intent(this, ActivityAbout.class);
 	    	startActivity(intent_about);
-	    	break; 	
+	    	break;
+		case R.id.button_bluetooth:
+			Intent intent_bluetooth = new Intent(this, ActivityBluetooth.class);
+			startActivity(intent_bluetooth);
+			break;
 	    default:
 	    	break;
 	    }

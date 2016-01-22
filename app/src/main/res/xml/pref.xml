@@ -13,25 +13,16 @@
 			 android:title="MAC address"
 			 android:summary="MAC-address of Bluetooth module"
 			 android:defaultValue="@+string/default_MAC" />
-		
-		<EditTextPreference
-			 android:key="pref_commandLeft"
-			 android:title="Symbol for left motor"
-			 android:summary="Command symbol for left motor"
-			 android:defaultValue="@+string/default_commandLeft" />
-			
-		<EditTextPreference
-			 android:key="pref_commandRight"
-			 android:title="Symbol for right motor"
-			 android:summary="Command symbol for right motor"
-			 android:defaultValue="@+string/default_commandRight" />
-		
-		<EditTextPreference
-			 android:key="pref_commandHorn"
-			 android:title="Optional Symbol"
-			 android:summary="Symbol for optional command (for example horn)"
-			 android:defaultValue="@+string/default_commandHorn" />
-		
+
+		<com.vanniktech.vntnumberpickerpreference.VNTNumberPickerPreference
+			xmlns:vntnumberpickerpreference="http://schemas.android.com/apk/res-auto"
+			android:defaultValue="@integer/default_seconds"
+			android:key="preference_stop_seconds"
+			android:title="@string/title_preference_stop_seconds"
+			vntnumberpickerpreference:maxValue="@integer/default_secondsMax"
+			vntnumberpickerpreference:minValue="@integer/default_secondsMin"
+			vntnumberpickerpreference:setWrapSelectorWheel="true"/>
+
 		<CheckBoxPreference
 			android:key="pref_Debug"
 			android:title="Debug info"
