@@ -44,8 +44,6 @@ public final class ArduinoCommunicator {
     private static CmdMessenger cmdMessenger;
     private static ConnectionManager connectionManager;
 
-    private Context context;
-
     /**
      * Gets or sets the number of seconds after which the car stops.
      */
@@ -59,8 +57,7 @@ public final class ArduinoCommunicator {
         timeOut = newTimeOut;
     }
 
-    private ArduinoCommunicator(Context context) {
-        this.context = context;
+    private ArduinoCommunicator() {
 
     }
 
