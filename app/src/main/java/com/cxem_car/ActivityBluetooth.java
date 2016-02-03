@@ -5,8 +5,6 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 
 import java.util.Set;
 
@@ -20,19 +18,16 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.github.pimsturm.commandmessenger.EventHandler;
+import com.github.pimsturm.commandmessenger.Transport.Bluetooth.BluetoothReceiver;
 import com.github.pimsturm.commandmessenger.Transport.Bluetooth.BluetoothUtils;
 
 public class ActivityBluetooth extends Activity {
 
     private static final int REQUEST_ENABLE_BT = 1;
-    private Button onBtn;
-    private Button offBtn;
-    private Button listBtn;
-    private Button findBtn;
     private TextView text;
-    private Set<BluetoothDevice> pairedDevices;
-    private ListView myListView;
     private ArrayAdapter<String> BTArrayAdapter;
+    private final BluetoothReceiver bReceiver = BluetoothReceiver.getInstance();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,10 +35,10 @@ public class ActivityBluetooth extends Activity {
         setContentView(R.layout.activity_bluetooth);
 
         text = (TextView) findViewById(R.id.text);
-        onBtn = (Button) findViewById(R.id.turnOn);
-        offBtn = (Button) findViewById(R.id.turnOff);
-        listBtn = (Button) findViewById(R.id.paired);
-        findBtn = (Button) findViewById(R.id.search);
+        Button onBtn = (Button) findViewById(R.id.turnOn);
+        Button offBtn = (Button) findViewById(R.id.turnOff);
+        Button listBtn = (Button) findViewById(R.id.paired);
+        Button findBtn = (Button) findViewById(R.id.search);
 
         if (BluetoothUtils.getPrimaryRadio() == null) {
 
@@ -51,8 +46,6 @@ public class ActivityBluetooth extends Activity {
             offBtn.setEnabled(false);
             listBtn.setEnabled(false);
             findBtn.setEnabled(false);
-
-            text.setText("Status: not supported");
 
             Toast.makeText(getApplicationContext(), "Your device does not support Bluetooth",
                     Toast.LENGTH_LONG).show();
@@ -89,12 +82,23 @@ public class ActivityBluetooth extends Activity {
                 }
             });
 
-            myListView = (ListView) findViewById(R.id.listView1);
+            ListView myListView = (ListView) findViewById(R.id.listView1);
 
             // create the arrayAdapter that contains the BTDevices, and set it to the ListView
             BTArrayAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
             myListView.setAdapter(BTArrayAdapter);
         }
+
+        bReceiver.setDeviceFound(new EventHandler<BluetoothDevice>() {
+            @Override
+            public void invokeEvent(Object sender, BluetoothDevice device) {
+                // add the name and the MAC address of the object to the arrayAdapter
+                BTArrayAdapter.add(device.getName() + "\n" + device.getAddress());
+                BTArrayAdapter.notifyDataSetChanged();
+
+            }
+        });
+
         setStatusText();
     }
 
@@ -119,18 +123,21 @@ public class ActivityBluetooth extends Activity {
     }
 
     private void setStatusText() {
-        if (BluetoothUtils.getPrimaryRadio().isEnabled()) {
-            text.setText("Status: Enabled");
+        if (BluetoothUtils.getPrimaryRadio() == null) {
+            text.setText(R.string.bluetooth_not_available);
+        } else if (BluetoothUtils.getPrimaryRadio().isEnabled()) {
+            text.setText(R.string.bluetooth_enabled);
         } else {
-            text.setText("Status: Disabled");
+            text.setText(R.string.bluetooth_disabled);
         }
 
     }
     public void list(View view) {
         // get paired devices
-        pairedDevices = BluetoothUtils.getPrimaryRadio().getBondedDevices();
+        Set<BluetoothDevice> pairedDevices = BluetoothUtils.getPrimaryRadio().getBondedDevices();
 
-        // put it's one to the adapter
+        // add them one by one to the adapter
+        BTArrayAdapter.clear();
         for (BluetoothDevice device : pairedDevices)
             BTArrayAdapter.add(device.getName() + "\n" + device.getAddress());
 
@@ -138,20 +145,6 @@ public class ActivityBluetooth extends Activity {
                 Toast.LENGTH_SHORT).show();
 
     }
-
-    final BroadcastReceiver bReceiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            // When discovery finds a device
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                // Get the BluetoothDevice object from the Intent
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                // add the name and the MAC address of the object to the arrayAdapter
-                BTArrayAdapter.add(device.getName() + "\n" + device.getAddress());
-                BTArrayAdapter.notifyDataSetChanged();
-            }
-        }
-    };
 
     public void find(View view) {
         if (BluetoothUtils.getPrimaryRadio().isDiscovering()) {
@@ -162,12 +155,13 @@ public class ActivityBluetooth extends Activity {
             BluetoothUtils.getPrimaryRadio().startDiscovery();
 
             registerReceiver(bReceiver, new IntentFilter(BluetoothDevice.ACTION_FOUND));
+            bReceiver.register();
         }
     }
 
     public void off(View view) {
         BluetoothUtils.getPrimaryRadio().disable();
-        text.setText("Status: Disconnected");
+        text.setText(R.string.bluetooth_disconnected);
 
         Toast.makeText(getApplicationContext(), "Bluetooth turned off",
                 Toast.LENGTH_LONG).show();
@@ -176,7 +170,10 @@ public class ActivityBluetooth extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        unregisterReceiver(bReceiver);
+        if (bReceiver.isRegistered()) {
+            unregisterReceiver(bReceiver);
+            bReceiver.unregister();
+        }
     }
 
 }

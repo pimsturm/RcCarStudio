@@ -65,6 +65,10 @@
     <string name="off">Turn Off</string>
     <string name="List">List paired Devices</string>
     <string name="Find">Search new Devices / Cancel</string>
+    <string name="bluetooth_not_available">Status: not available</string>
+    <string name="bluetooth_enabled">Status: Enabled</string>
+    <string name="bluetooth_disabled">Status: Disabled</string>
+    <string name="bluetooth_disconnected">Status: Disconnected</string>
 
 
 </resources>
