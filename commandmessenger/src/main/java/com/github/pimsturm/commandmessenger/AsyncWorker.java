@@ -2,10 +2,6 @@ package com.github.pimsturm.commandmessenger;
 
 import android.util.Log;
 
-import com.github.pimsturm.commandmessenger.EventWaiter;
-import com.github.pimsturm.commandmessenger.IAsyncWorkerJob;
-import com.github.pimsturm.commandmessenger.WorkerState;
-
 public class AsyncWorker {
 
     private static final String TAG = "AsyncWorker";

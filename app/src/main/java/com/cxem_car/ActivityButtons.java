@@ -26,6 +26,7 @@ public class ActivityButtons extends Activity {
 	
 	private cBluetooth bl = null;
 	private ToggleButton LightButton;
+	private final ArduinoCommunicator mArduinoCommunicator = ArduinoCommunicator.getInstance();
 	
 	private Button btn_forward, btn_backward, btn_left, btn_right;
 	
@@ -34,8 +35,7 @@ public class ActivityButtons extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_buttons);
 
-		Log.d("Buttons", "OnCreate");
-        ArduinoCommunicator.SetupChannel();
+		mArduinoCommunicator.SetupChannel();
 		
 		btn_forward = (Button) findViewById(R.id.forward);
 		btn_backward = (Button) findViewById(R.id.backward);
@@ -45,10 +45,10 @@ public class ActivityButtons extends Activity {
 		btn_forward.setOnTouchListener(new OnTouchListener() {
 			public boolean onTouch(View v, MotionEvent event) {
 		        if(event.getAction() == MotionEvent.ACTION_MOVE) {
-                    ArduinoCommunicator.MotorForward();
-		        } else if (event.getAction() == MotionEvent.ACTION_UP) {
-                    ArduinoCommunicator.MotorStop();
-		        }
+					mArduinoCommunicator.MotorForward();
+				} else if (event.getAction() == MotionEvent.ACTION_UP) {
+					mArduinoCommunicator.MotorStop();
+				}
 				return false;
 		    }
 		});
@@ -56,10 +56,10 @@ public class ActivityButtons extends Activity {
 		btn_left.setOnTouchListener(new OnTouchListener() {
 			public boolean onTouch(View v, MotionEvent event) {
 		        if(event.getAction() == MotionEvent.ACTION_MOVE) {
-                    ArduinoCommunicator.MotorToLeft();
-		        } else if (event.getAction() == MotionEvent.ACTION_UP) {
-                    ArduinoCommunicator.MotorStop();
-		        }
+					mArduinoCommunicator.MotorToLeft();
+				} else if (event.getAction() == MotionEvent.ACTION_UP) {
+					mArduinoCommunicator.MotorStop();
+				}
 				return false;
 		    }
 		});
@@ -67,10 +67,10 @@ public class ActivityButtons extends Activity {
 		btn_right.setOnTouchListener(new OnTouchListener() {
 			public boolean onTouch(View v, MotionEvent event) {
 		        if(event.getAction() == MotionEvent.ACTION_MOVE) {
-                    ArduinoCommunicator.MotorToRight();
-		        } else if (event.getAction() == MotionEvent.ACTION_UP) {
-                    ArduinoCommunicator.MotorStop();
-		        }
+					mArduinoCommunicator.MotorToRight();
+				} else if (event.getAction() == MotionEvent.ACTION_UP) {
+					mArduinoCommunicator.MotorStop();
+				}
 				return false;
 		    }
 		});
@@ -78,10 +78,10 @@ public class ActivityButtons extends Activity {
 		btn_backward.setOnTouchListener(new OnTouchListener() {
 			public boolean onTouch(View v, MotionEvent event) {
 		        if(event.getAction() == MotionEvent.ACTION_MOVE) {
-                    ArduinoCommunicator.MotorBackward();
-		        } else if (event.getAction() == MotionEvent.ACTION_UP) {
-                    ArduinoCommunicator.MotorStop();
-		        }
+					mArduinoCommunicator.MotorBackward();
+				} else if (event.getAction() == MotionEvent.ACTION_UP) {
+					mArduinoCommunicator.MotorStop();
+				}
 				return false;
 		    }
 		});
@@ -90,11 +90,11 @@ public class ActivityButtons extends Activity {
 		LightButton.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
 				if(LightButton.isChecked()){
-                    ArduinoCommunicator.SwitchLightOn();
-	    		}else{
-                    ArduinoCommunicator.SwitchLightOff();
-	    		}
-	    	}
+					mArduinoCommunicator.SwitchLightOn();
+				} else {
+					mArduinoCommunicator.SwitchLightOff();
+				}
+			}
 	    });
 		
 

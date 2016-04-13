@@ -1,12 +1,12 @@
 package com.github.pimsturm.commandmessenger.Queue;
 
 import com.github.pimsturm.commandmessenger.Command;
+import com.github.pimsturm.commandmessenger.CommandEventArgs;
 import com.github.pimsturm.commandmessenger.CommunicationManager;
 import com.github.pimsturm.commandmessenger.IAsyncWorkerJob;
 import com.github.pimsturm.commandmessenger.IEventHandler;
-import com.github.pimsturm.commandmessenger.SendQueue;
 import com.github.pimsturm.commandmessenger.SendCommand;
-import com.github.pimsturm.commandmessenger.CommandEventArgs;
+import com.github.pimsturm.commandmessenger.SendQueue;
 
 public class SendCommandQueue extends CommandQueue {
     public IEventHandler NewLineSent;

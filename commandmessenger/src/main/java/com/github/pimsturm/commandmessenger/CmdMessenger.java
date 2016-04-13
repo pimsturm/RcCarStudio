@@ -1,12 +1,13 @@
 package com.github.pimsturm.commandmessenger;
 
+import android.util.SparseArray;
+
 import com.github.pimsturm.commandmessenger.Queue.CommandStrategy;
 import com.github.pimsturm.commandmessenger.Queue.GeneralStrategy;
 import com.github.pimsturm.commandmessenger.Queue.ReceiveCommandQueue;
 import com.github.pimsturm.commandmessenger.Queue.SendCommandQueue;
 import com.github.pimsturm.commandmessenger.Transport.ITransport;
-
-import java.util.HashMap;
+import com.github.pimsturm.commandmessenger.Transport.ReceiveHandler;
 
 
 /**
@@ -14,18 +15,20 @@ import java.util.HashMap;
   */
 
 //Idisposable
-public class CmdMessenger implements IMessengerCallbackFunction {
+public class CmdMessenger {
     private CommunicationManager communicationManager;                 // The communication manager
-    private IMessengerCallbackFunction defaultCallback;                 // The default callback
-    private HashMap<Integer, IMessengerCallbackFunction> callbackFunctionHashMap;   // List of callbacks
+    private SparseArray<IMessengerCallbackFunction> callbackFunctionHashMap;   // List of callbacks
     private SendCommandQueue sendCommandQueue;                         // The queue of commands to be sent
     private ReceiveCommandQueue receiveCommandQueue;                   // The queue of commands to be processed
+    private ReceiveHandler mReceiveHandler = new ReceiveHandler();             // Handles the received commands
 
     /**
-     * Definition of the messenger callback function.
-     * @param receivedCommand The received command.
+     * Gets the handler for received commands
+     * @return mReceiveHandler
      */
-    public IMessengerCallbackFunction messengerCallbackFunction;
+    public ReceiveHandler getmReceiveHandler() {
+        return mReceiveHandler;
+    }
 
     /**
      * Event handler for one or more lines received
@@ -38,10 +41,8 @@ public class CmdMessenger implements IMessengerCallbackFunction {
     public IEventHandler newLineSent;
 
     /**
-     * Gets or sets a flag whether to print a line feed carriage return after each command.
-     * @return true if print line feed carriage return, false if not.
+     * Sets a flag whether to print a line feed carriage return after each command.
      */
-    public boolean getPrintLfCr() { return communicationManager.getPrintLfCr(); }
     public void setPrintLfCr(boolean printLfCr) { communicationManager.setPrintLfCr(printLfCr); }
 
     /**
@@ -149,20 +150,19 @@ public class CmdMessenger implements IMessengerCallbackFunction {
         //Logger.open(@"sendCommands.txt");
         Logger.setDirectFlush(true);
 
-        receiveCommandQueue = new ReceiveCommandQueue(this); // this.handleMessage = Delegate
+        receiveCommandQueue = new ReceiveCommandQueue(mReceiveHandler);
         communicationManager = new CommunicationManager(transport, receiveCommandQueue, boardType, commandSeparator, fieldSeparator, escapeCharacter);
         sendCommandQueue = new SendCommandQueue(communicationManager, sendBufferMaxLength);
+        mReceiveHandler.setCommunicationManager(communicationManager);
 
         setPrintLfCr(false);
 
-        //receiveCommandQueue.newLineReceived = (o, e) -> invokeNewLineEvent(newLineReceived, e);
         receiveCommandQueue.NewLineReceived = new EventHandler <CommandEventArgs>() {
             @Override
             public void invokeEvent(Object sender, CommandEventArgs e) {
                 invokeNewLineEvent(newLineReceived, e);
             }
         };
-        //sendCommandQueue.newLineSent        += (o, e) -> invokeNewLineEvent(newLineSent, e);
         sendCommandQueue.NewLineSent = new EventHandler <CommandEventArgs>() {
             @Override
             public void invokeEvent(Object sender, CommandEventArgs e) {
@@ -172,7 +172,7 @@ public class CmdMessenger implements IMessengerCallbackFunction {
         };
 
         Escaping.setEscapeChars(fieldSeparator, commandSeparator, escapeCharacter);
-        callbackFunctionHashMap = new HashMap<Integer, IMessengerCallbackFunction>();
+        callbackFunctionHashMap = new SparseArray<>();
 
         sendCommandQueue.Start();
         receiveCommandQueue.Start();
@@ -211,7 +211,7 @@ public class CmdMessenger implements IMessengerCallbackFunction {
      */
     public void attach(IMessengerCallbackFunction newFunction)
     {
-        defaultCallback = newFunction;
+        mReceiveHandler.attach(newFunction);
     }
 
     /**
@@ -221,7 +221,7 @@ public class CmdMessenger implements IMessengerCallbackFunction {
      */
     public void attach(int messageId, IMessengerCallbackFunction newFunction)
     {
-        callbackFunctionHashMap.put(messageId, newFunction);
+        mReceiveHandler.attach(messageId, newFunction);
     }
 
     /**
@@ -231,34 +231,6 @@ public class CmdMessenger implements IMessengerCallbackFunction {
     public long getLastReceivedCommandTimeStamp()
     {
         return communicationManager.getLastLineTimeStamp();
-    }
-
-    /**
-     * Handle message.
-     * @param receivedCommand The received command.
-     */
-    public void handleMessage(ReceivedCommand receivedCommand)
-    {
-        IMessengerCallbackFunction callback = null;
-
-        if (receivedCommand.getOk())
-        {
-            if (callbackFunctionHashMap.containsKey(receivedCommand.getCmdId()))
-            {
-                callback = callbackFunctionHashMap.get(receivedCommand.getCmdId());
-            }
-            else
-            {
-                if (defaultCallback != null) callback = defaultCallback;
-            }
-        }
-        else
-        {
-            // Empty command
-            receivedCommand = new ReceivedCommand(communicationManager);
-        }
-
-        invokeCallBack(callback, receivedCommand);
     }
 
     /**
@@ -472,7 +444,7 @@ public class CmdMessenger implements IMessengerCallbackFunction {
     /**
      * Helper function to call an event.
      * @param newLineHandler The event handler.
-     * @param newLineArgs
+     * @param newLineArgs Argumnets of the event handler
      */
     private void invokeNewLineEvent(IEventHandler newLineHandler, CommandEventArgs newLineArgs)
     {
@@ -480,19 +452,6 @@ public class CmdMessenger implements IMessengerCallbackFunction {
 
         //Directly call
         newLineHandler.invokeEvent(this, newLineArgs);
-    }
-
-    /**
-     * Helper function to Invoke or directly call callback function.
-     * @param messengerCallbackFunction The messenger callback function.
-     * @param command The command.
-     */
-    private void invokeCallBack(IMessengerCallbackFunction messengerCallbackFunction, ReceivedCommand command)
-    {
-        if (messengerCallbackFunction == null) return;
-
-        //Directly call
-        messengerCallbackFunction.handleMessage(command);
     }
 
     protected void dispose(boolean disposing)

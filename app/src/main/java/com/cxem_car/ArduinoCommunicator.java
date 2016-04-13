@@ -1,13 +1,11 @@
 package com.cxem_car;
 
-import android.content.Context;
 import android.util.Log;
 import android.widget.Toast;
 
 import com.github.pimsturm.commandmessenger.BoardType;
 import com.github.pimsturm.commandmessenger.CmdMessenger;
 import com.github.pimsturm.commandmessenger.CommandEventArgs;
-import com.github.pimsturm.commandmessenger.ConnectionManager;
 import com.github.pimsturm.commandmessenger.ConnectionManagerProgressEventArgs;
 import com.github.pimsturm.commandmessenger.IEventHandler;
 import com.github.pimsturm.commandmessenger.IMessengerCallbackFunction;
@@ -32,6 +30,7 @@ enum Command {
 
 
 public final class ArduinoCommunicator {
+    private static ArduinoCommunicator uniqueInstance;
     private static final String TAG = "ArduinoCommunicator";
     // Most of the time you want to be sure you are connecting with the correct device.
     private static final String COMMUNICATION_IDENTIFIER = "BFAF4176-766E-436A-ADF2-96133C02B03C";
@@ -40,9 +39,9 @@ public final class ArduinoCommunicator {
     private static final int PWM_MOTOR_LEFT = 255;
     private static final int PWM_MOTOR_RIGHT = 255;
 
-    private static ITransport transport;
-    private static CmdMessenger cmdMessenger;
-    private static ConnectionManager connectionManager;
+    private ITransport transport;
+    private CmdMessenger cmdMessenger;
+    private BluetoothConnectionManager connectionManager;
 
     /**
      * Gets or sets the number of seconds after which the car stops.
@@ -58,12 +57,17 @@ public final class ArduinoCommunicator {
     }
 
     private ArduinoCommunicator() {
-
     }
 
-    public static void SetupChannel() {
+    public static synchronized ArduinoCommunicator getInstance() {
+        if (uniqueInstance == null) {
+            uniqueInstance = new ArduinoCommunicator();
+        }
+        return uniqueInstance;
+    }
+
+    public void SetupChannel() {
         Log.d(TAG, "Setup channel");
-        Toast.makeText(ApplicationContextProvider.getContext(), "Setup channel", Toast.LENGTH_SHORT).show();
         // Now let us set the transport layer
         transport = GetTransport();
 
@@ -84,24 +88,24 @@ public final class ArduinoCommunicator {
         connectionManager = GetConnectionManager();
 
         // Show all connection progress in the output window
-        connectionManager.progress = new EventHandler <ConnectionManagerProgressEventArgs> () {
+        connectionManager.progress = new EventHandler<ConnectionManagerProgressEventArgs>() {
             @Override
             public void invokeEvent(Object sender, ConnectionManagerProgressEventArgs eventArgs) {
                 if (eventArgs.getLevel() <= 3) {
                     Log.d(TAG, eventArgs.getDescription());
-                    //Toast.makeText(context.getApplicationContext(), eventArgs.getDescription(), Toast.LENGTH_SHORT);
+                    Toast.makeText(ApplicationContextProvider.getContext(), eventArgs.getLevel() + " " + eventArgs.getDescription(), Toast.LENGTH_LONG).show();
                 }
             }
 
         };
 
-        connectionManager.connectionFound = new EventHandler <CommandEventArgs>() {
+        connectionManager.connectionFound = new EventHandler<CommandEventArgs>() {
             @Override
             public void invokeEvent(Object sender, CommandEventArgs eventArgs) {
                 //TODO: enable the control buttons on the form
 
                 Log.d(TAG, "Connection found");
-                Toast.makeText(ApplicationContextProvider.getContext(), "Connection found", Toast.LENGTH_SHORT).show();
+                Toast.makeText(ApplicationContextProvider.getContext(), "Connection found", Toast.LENGTH_LONG).show();
 
                 // Get the settings currently stored in the Arduino EEPROM
                 SendCommand command = new SendCommand(Command.kSettings.ordinal());
@@ -115,24 +119,22 @@ public final class ArduinoCommunicator {
 
     }
 
-    private static ConnectionManager GetConnectionManager() {
+    private BluetoothConnectionManager GetConnectionManager() {
         // The Connection manager is capable of storing connection settings, in order to reconnect more quickly
         // the next time the application is run. You can determine yourself where and how to store the settings
         // by supplying a class, that implements ISerialConnectionStorer. For convenience, CmdMessenger provides
         //  simple binary file storage functionality
         BluetoothConnectionStorer bluetoothConnectionStorer = new BluetoothConnectionStorer("BluetoothConnectionManagerSettings.cfg");
 
-        // It is easier to let the BluetoothConnectionManager connection for you.
+        // It is easier to let the BluetoothConnectionManager connect for you.
         // It will:
         //  - Auto discover Bluetooth devices
         //  - If not yet paired, try to pair using the default Bluetooth passwords
         //  - See if the device responds with the correct CommunicationIdentifier
-        ConnectionManager connectionManager = new BluetoothConnectionManager(
-                (BluetoothTransport) transport,
+        BluetoothConnectionManager connectionManager = new BluetoothConnectionManager(
                 cmdMessenger,
                 Command.kIdentify.ordinal(),
-                COMMUNICATION_IDENTIFIER,
-                null);
+                COMMUNICATION_IDENTIFIER);
 
         // Enable watchdog functionality.
         connectionManager.setWatchdogEnabled(true);
@@ -150,14 +152,14 @@ public final class ArduinoCommunicator {
         //    Control Panel >> All Control Panel Items >> Devices and Printers
         //    Right-click on device >> properties >> Unique id
         bluetoothTransport.setCurrentBluetoothDeviceInfo(BluetoothUtils.deviceByAddress("30:15:01:07:11:28"));
-            return bluetoothTransport;
+        return bluetoothTransport;
 
     }
 
     /**
      * Send Command to the Arduino to switch on the light
      */
-    public static void SwitchLightOn() {
+    public void SwitchLightOn() {
         SendCommand command = new SendCommand(Command.kLight.ordinal());
         command.addArgument(1);
         cmdMessenger.sendCommand(command);
@@ -166,7 +168,7 @@ public final class ArduinoCommunicator {
     /**
      * Send Command to the Arduino to switch off the light
      */
-    public static void SwitchLightOff() {
+    public void SwitchLightOff() {
         SendCommand command = new SendCommand(Command.kLight.ordinal());
         command.addArgument(0);
         cmdMessenger.sendCommand(command);
@@ -175,7 +177,7 @@ public final class ArduinoCommunicator {
     /**
      * Send commands to make the car move straight ahead
      */
-    public static void MotorForward() {
+    public void MotorForward() {
         SendCommand command = new SendCommand(Command.kLeftMotor.ordinal());
         command.addArgument(PWM_MOTOR_LEFT);
         cmdMessenger.sendCommand(command);
@@ -189,7 +191,7 @@ public final class ArduinoCommunicator {
     /**
      * Send commands to make the car move backward
      */
-    public static void MotorBackward() {
+    public void MotorBackward() {
         SendCommand command = new SendCommand(Command.kLeftMotor.ordinal());
         command.addArgument(-PWM_MOTOR_LEFT);
         cmdMessenger.sendCommand(command);
@@ -203,7 +205,7 @@ public final class ArduinoCommunicator {
     /**
      * Send a command to stop the car
      */
-    public static void MotorStop() {
+    public void MotorStop() {
         SendCommand command = new SendCommand(Command.kStopMotor.ordinal());
         cmdMessenger.sendCommand(command);
     }
@@ -211,7 +213,7 @@ public final class ArduinoCommunicator {
     /**
      * Send commands to make the car move to the left
      */
-    public static void MotorToLeft() {
+    public void MotorToLeft() {
         SendCommand command = new SendCommand(Command.kLeftMotor.ordinal());
         command.addArgument(-PWM_MOTOR_LEFT);
         cmdMessenger.sendCommand(command);
@@ -225,7 +227,7 @@ public final class ArduinoCommunicator {
     /**
      * Send commands to make the car move to the right
      */
-    public static void MotorToRight() {
+    public void MotorToRight() {
         SendCommand command = new SendCommand(Command.kLeftMotor.ordinal());
         command.addArgument(PWM_MOTOR_LEFT);
         cmdMessenger.sendCommand(command);
@@ -237,7 +239,7 @@ public final class ArduinoCommunicator {
     }
 
     /// Attach command call backs.
-    private static void AttachCommandCallBacks() {
+    private void AttachCommandCallBacks() {
         cmdMessenger.attach(new OnUnknownCommand());
         cmdMessenger.attach(Command.kStatus.ordinal(), new OnAcknowledge());
         cmdMessenger.attach(Command.kSettings.ordinal(), new OnSettingsReceived());
@@ -283,7 +285,6 @@ public final class ArduinoCommunicator {
     }
 
 
-
     // Log sent line to console
     public static class NewLineSent implements IEventHandler<CommandEventArgs> {
 
@@ -295,8 +296,8 @@ public final class ArduinoCommunicator {
 
     /**
      * Exit function
-      */
-    public static void Exit() {
+     */
+    public void Exit() {
         if (connectionManager != null)
             connectionManager.stopConnectionManager();
 

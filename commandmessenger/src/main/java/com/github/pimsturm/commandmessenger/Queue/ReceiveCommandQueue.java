@@ -3,10 +3,10 @@ package com.github.pimsturm.commandmessenger.Queue;
 import com.github.pimsturm.commandmessenger.CommandEventArgs;
 import com.github.pimsturm.commandmessenger.IAsyncWorkerJob;
 import com.github.pimsturm.commandmessenger.IEventHandler;
-import com.github.pimsturm.commandmessenger.IMessengerCallbackFunction;
 import com.github.pimsturm.commandmessenger.SendQueue;
 import com.github.pimsturm.commandmessenger.ReceivedCommand;
 import com.github.pimsturm.commandmessenger.ReceivedCommandSignal;
+import com.github.pimsturm.commandmessenger.Transport.ReceiveHandler;
 
 /// <summary> Queue of received commands.  </summary>
 public class ReceiveCommandQueue extends CommandQueue {
@@ -14,10 +14,10 @@ public class ReceiveCommandQueue extends CommandQueue {
     //public event handleMessage<CommandEventArgs> newLineReceived;
     public IEventHandler NewLineReceived;
 
-    private final IMessengerCallbackFunction _receivedCommandHandler;
+    private ReceiveHandler _receivedCommandHandler;
     private final ReceivedCommandSignal _receivedCommandSignal = new ReceivedCommandSignal();
 
-    public ReceiveCommandQueue(IMessengerCallbackFunction receivedCommandHandler)
+    public ReceiveCommandQueue(ReceiveHandler receivedCommandHandler)
     {
         super();
         _receivedCommandHandler = receivedCommandHandler;
@@ -51,7 +51,7 @@ public class ReceiveCommandQueue extends CommandQueue {
             }
 
             if (dequeueCommand != null) {
-                _receivedCommandHandler.handleMessage(dequeueCommand);
+                _receivedCommandHandler.processCommand(dequeueCommand);
             }
 
             return hasMoreWork;
