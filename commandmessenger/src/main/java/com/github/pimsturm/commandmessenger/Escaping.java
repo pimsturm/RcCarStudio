@@ -96,7 +96,9 @@ public final class Escaping
             result.removeAll(Collections.singleton(""));
         }
 
-        return (String[]) result.toArray();
+        String[] resultArr = new String[result.size()];
+
+        return result.toArray(resultArr);
     }
 
     /**

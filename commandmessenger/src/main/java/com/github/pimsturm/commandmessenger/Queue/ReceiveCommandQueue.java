@@ -51,7 +51,7 @@ public class ReceiveCommandQueue extends CommandQueue {
             }
 
             if (dequeueCommand != null) {
-                _receivedCommandHandler.processCommand(dequeueCommand);
+                //_receivedCommandHandler.processCommand(dequeueCommand);
             }
 
             return hasMoreWork;

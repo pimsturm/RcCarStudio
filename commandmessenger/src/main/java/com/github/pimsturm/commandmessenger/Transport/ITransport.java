@@ -8,15 +8,13 @@ import com.github.pimsturm.commandmessenger.IEventHandler;
 public interface ITransport {
     /**
      * connect transport
-     * @return
      */
-    boolean connect();
+    void startConnectionManager();
 
     /**
      * disconnect transport
-     * @return
      */
-    boolean disconnect();
+    void stopConnectionManager();
 
     /**
      * Returns connection status
@@ -25,20 +23,13 @@ public interface ITransport {
     boolean isConnected();
 
     /**
-     * Bytes read over transport
-     * @return
+     * write a string to the output stream
+     * @param value The string to write
      */
-    byte[] read();
+    void write(String value);
 
-    /**
-     * write bytes over transport
-     * @param buffer
-     */
-    void write(byte[] buffer);
+    void setConnectionFound(IEventHandler eventHandler);
 
-    /**
-     * Bytes have been received event.
-     * @param dataReceived
-     */
-    void setDataReceived (IEventHandler dataReceived);
+    void setProgress(IEventHandler eventHandler);
+
 }

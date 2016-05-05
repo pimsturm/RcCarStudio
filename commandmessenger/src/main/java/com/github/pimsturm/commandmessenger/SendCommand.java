@@ -11,6 +11,7 @@ import java.util.concurrent.Callable;
 public class SendCommand extends Command {
     private static final String TAG = "Command";
     private final ArrayList<Callable<Object>> lazyArguments = new ArrayList<Callable<Object>>();
+    private Settings settings;
 
     private boolean reqAc;
 
@@ -291,6 +292,7 @@ public class SendCommand extends Command {
         setCmdId(cmdId);
         this.ackCmdId = ackCmdId;
         this.timeout = timeout;
+        this.settings = Settings.getInstance();
     }
 
     // ***** String based **** /
@@ -352,7 +354,7 @@ public class SendCommand extends Command {
         lazyArguments.add(new Callable<Object>() {
             @Override
             public Object call() throws Exception {
-                if (CommunicationManager.getBoardType() == BoardType.Bit16) {
+                if (settings.getBoardType() == BoardType.Bit16) {
                     // Not completely sure if this is needed for plain text sending.
                     float floatArg = argument.floatValue();
                     cmdArgs.add(String.valueOf(floatArg));
@@ -475,7 +477,7 @@ public class SendCommand extends Command {
         lazyArguments.add(new Callable<Object>() {
             @Override
             public Object call() throws Exception {
-                return cmdArgs.add(CommunicationManager.getBoardType() == BoardType.Bit16
+                return cmdArgs.add(settings.getBoardType() == BoardType.Bit16
                         ? BinaryConverter.toString(argument.floatValue())
                         : BinaryConverter.toString(argument));
             }

@@ -132,7 +132,7 @@ public class SendCommandQueue extends CommandQueue {
         {
             _commandCount++;
             _sendBuffer += commandStrategy.getCommand().commandString();
-            if (_communicationManager.getPrintLfCr()) { _sendBuffer += "\r\n"; }
+//            if (_communicationManager.getPrintLfCr()) { _sendBuffer += "\r\n"; }
         }
     }
 
@@ -165,7 +165,6 @@ public class SendCommandQueue extends CommandQueue {
             // Process commandStrategy enqueue associated with command
             commandStrategy.setCommandQueue(Queue);
             Command command = commandStrategy.getCommand();
-            command.setCommunicationManager(_communicationManager);
             ((SendCommand)commandStrategy.getCommand()).initArguments();
 
             commandStrategy.Enqueue();

@@ -68,10 +68,11 @@ public class ConnectThread extends Thread {
     }
 
     public void cancel() {
+        /*
         try {
             mBluetoothSocket.close();
         } catch (IOException e) {
-        }
+        } */
     }
 
 }

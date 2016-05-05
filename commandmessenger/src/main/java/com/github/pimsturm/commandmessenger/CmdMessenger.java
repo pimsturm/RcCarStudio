@@ -1,11 +1,11 @@
 package com.github.pimsturm.commandmessenger;
 
-import android.util.SparseArray;
 
 import com.github.pimsturm.commandmessenger.Queue.CommandStrategy;
 import com.github.pimsturm.commandmessenger.Queue.GeneralStrategy;
 import com.github.pimsturm.commandmessenger.Queue.ReceiveCommandQueue;
 import com.github.pimsturm.commandmessenger.Queue.SendCommandQueue;
+import com.github.pimsturm.commandmessenger.Transport.Bluetooth.BluetoothConnectionManager;
 import com.github.pimsturm.commandmessenger.Transport.ITransport;
 import com.github.pimsturm.commandmessenger.Transport.ReceiveHandler;
 
@@ -16,11 +16,20 @@ import com.github.pimsturm.commandmessenger.Transport.ReceiveHandler;
 
 //Idisposable
 public class CmdMessenger {
-    private CommunicationManager communicationManager;                 // The communication manager
-    private SparseArray<IMessengerCallbackFunction> callbackFunctionHashMap;   // List of callbacks
-    private SendCommandQueue sendCommandQueue;                         // The queue of commands to be sent
-    private ReceiveCommandQueue receiveCommandQueue;                   // The queue of commands to be processed
-    private ReceiveHandler mReceiveHandler = new ReceiveHandler();             // Handles the received commands
+    private Settings settings;
+    private CommunicationManager communicationManager;                  // The communication manager
+    private ITransport connectionManager;               // The connection manager
+    private SendCommandQueue sendCommandQueue;                          // The queue of commands to be sent
+    private ReceiveCommandQueue receiveCommandQueue;                    // The queue of commands to be processed
+    private ReceiveHandler mReceiveHandler = new ReceiveHandler();      // Handles the received commands
+
+    /**
+     * Get an object with all the settings for cmdMessenger.
+     * @return a settings object
+     */
+    public Settings getSettings() {
+        return settings;
+    }
 
     /**
      * Gets the handler for received commands
@@ -30,6 +39,9 @@ public class CmdMessenger {
         return mReceiveHandler;
     }
 
+    public ITransport getConnectionManager() {
+        return connectionManager;
+    }
     /**
      * Event handler for one or more lines received
      */
@@ -41,121 +53,19 @@ public class CmdMessenger {
     public IEventHandler newLineSent;
 
     /**
-     * Sets a flag whether to print a line feed carriage return after each command.
-     */
-    public void setPrintLfCr(boolean printLfCr) { communicationManager.setPrintLfCr(printLfCr); }
-
-    /**
      * Constructor.
-     * @param transport The transport layer.
-     * @param boardType Embedded Processor type. Needed to translate variables between sides.
      */
-    public CmdMessenger(ITransport transport, BoardType boardType)
-    {
-        init(transport, boardType, ',', ';', '/', 60);
-    }
-
-    /**
-     * Constructor.
-     * @param transport The transport layer.
-     */
-    public CmdMessenger(ITransport transport)
-    {
-        this(transport, BoardType.Bit16);
-    }
-
-    /**
-     * Constructor.
-     * @param transport The transport layer.
-     * @param sendBufferMaxLength The maximum size of the send buffer
-     * @param boardType Embedded Processor type. Needed to translate variables between sides.
-     */
-    public CmdMessenger(ITransport transport, int sendBufferMaxLength, BoardType boardType)
-    {
-        init(transport, boardType, ',', ';', '/', sendBufferMaxLength);
-    }
-
-    /**
-     * Constructor.
-     * @param transport The transport layer.
-     * @param sendBufferMaxLength The maximum size of the send buffer
-     */
-    public CmdMessenger(ITransport transport, int sendBufferMaxLength)
-    {
-        this(transport, sendBufferMaxLength, BoardType.Bit16);
-    }
-
-    /**
-     * Constructor.
-     * @param transport The transport layer.
-     * @param boardType Embedded Processor type. Needed to translate variables between sides.
-     * @param fieldSeparator The field separator.
-     */
-    public CmdMessenger(ITransport transport, BoardType boardType, char fieldSeparator)
-    {
-        init(transport, boardType, fieldSeparator, ';', '/', 60);
-    }
-
-    /**
-     * Constructor.
-     * @param transport The transport layer.
-     * @param boardType Embedded Processor type. Needed to translate variables between sides.
-     * @param fieldSeparator The field separator.
-     * @param sendBufferMaxLength The maximum size of the send buffer
-     */
-    public CmdMessenger(ITransport transport, BoardType boardType, char fieldSeparator, int sendBufferMaxLength)
-    {
-        init(transport, boardType, fieldSeparator, ';', '/', sendBufferMaxLength);
-    }
-
-    /**
-     * Constructor.
-     * @param transport The transport layer.
-     * @param boardType Embedded Processor type. Needed to translate variables between sides.
-     * @param fieldSeparator The field separator.
-     * @param commandSeparator The command separator.
-     */
-    public CmdMessenger(ITransport transport, BoardType boardType, char fieldSeparator, char commandSeparator)
-    {
-        init(transport, boardType, fieldSeparator, commandSeparator, commandSeparator, 60);
-    }
-
-    /**
-     * Constructor.
-     * @param transport The transport layer.
-     * @param boardType Embedded Processor type. Needed to translate variables between sides.
-     * @param fieldSeparator The field separator.
-     * @param commandSeparator The command separator.
-     * @param escapeCharacter The escape character.
-     * @param sendBufferMaxLength The maximum size of the send buffer
-     */
-    public CmdMessenger(ITransport transport, BoardType boardType, char fieldSeparator, char commandSeparator,
-                        char escapeCharacter, int sendBufferMaxLength)
-    {
-        init(transport, boardType, fieldSeparator, commandSeparator, escapeCharacter, sendBufferMaxLength);
-    }
-
-    /**
-     * Initializes this object.
-     * @param transport The transport layer.
-     * @param boardType Embedded Processor type. Needed to translate variables between sides.
-     * @param fieldSeparator The field separator.
-     * @param commandSeparator The command separator.
-     * @param escapeCharacter The escape character.
-     * @param sendBufferMaxLength The maximum size of the send buffer
-     */
-    private void init(ITransport transport, BoardType boardType, char fieldSeparator, char commandSeparator,
-                      char escapeCharacter, int sendBufferMaxLength)
+    public CmdMessenger()
     {
         //Logger.open(@"sendCommands.txt");
         Logger.setDirectFlush(true);
 
-        receiveCommandQueue = new ReceiveCommandQueue(mReceiveHandler);
-        communicationManager = new CommunicationManager(transport, receiveCommandQueue, boardType, commandSeparator, fieldSeparator, escapeCharacter);
-        sendCommandQueue = new SendCommandQueue(communicationManager, sendBufferMaxLength);
-        mReceiveHandler.setCommunicationManager(communicationManager);
+        settings = Settings.getInstance();
+        connectionManager = connectionManagerFactory();
 
-        setPrintLfCr(false);
+        receiveCommandQueue = new ReceiveCommandQueue(mReceiveHandler);
+        communicationManager = new CommunicationManager(connectionManager, receiveCommandQueue);
+        sendCommandQueue = new SendCommandQueue(communicationManager, 255);
 
         receiveCommandQueue.NewLineReceived = new EventHandler <CommandEventArgs>() {
             @Override
@@ -171,13 +81,13 @@ public class CmdMessenger {
 
         };
 
-        Escaping.setEscapeChars(fieldSeparator, commandSeparator, escapeCharacter);
-        callbackFunctionHashMap = new SparseArray<>();
-
         sendCommandQueue.Start();
         receiveCommandQueue.Start();
     }
 
+    public ITransport connectionManagerFactory() {
+        return new BluetoothConnectionManager(this);
+    }
     /**
      * Disposal of CmdMessenger
      */
@@ -185,24 +95,6 @@ public class CmdMessenger {
     {
         dispose(true);
         //GC.SuppressFinalize(this);
-    }
-
-    /**
-     * Stop listening and end serial port connection.
-     * @return true if it succeeds, false if it fails.
-     */
-    public boolean disconnect()
-    {
-        return communicationManager.disconnect();
-    }
-
-    /**
-     * Starts serial port connection and start listening.
-     * @return true if it succeeds, false if it fails.
-     */
-    public boolean connect()
-    {
-        return communicationManager.connect();
     }
 
     /**
@@ -222,15 +114,6 @@ public class CmdMessenger {
     public void attach(int messageId, IMessengerCallbackFunction newFunction)
     {
         mReceiveHandler.attach(messageId, newFunction);
-    }
-
-    /**
-     * Gets or sets the time stamp of the last command line received.
-     * @return The last line time stamp.
-     */
-    public long getLastReceivedCommandTimeStamp()
-    {
-        return communicationManager.getLastLineTimeStamp();
     }
 
     /**
@@ -286,11 +169,11 @@ public class CmdMessenger {
      * 	  has been received or the timeout has expired.
      * 	  Based on ClearQueueState, the send- and receive-queues are left intact or are cleared
      * @param sendCommand The command to sent.
-     * @return A received command. The received command will only be valid if the ReqAc of the command is true.
      */
-    public ReceivedCommand sendCommand(SendCommand sendCommand)
+    public void sendCommand(SendCommand sendCommand)
     {
-        return sendCommand(sendCommand, SendQueue.InFrontQueue, ReceiveQueue.Default, UseQueue.UseQueue);
+        sendCommand.initArguments();
+        connectionManager.write(sendCommand.commandString());
     }
 
     /**
@@ -372,7 +255,7 @@ public class CmdMessenger {
             // Put command at bottom of command queue
             sendCommandQueue.QueueCommand(sendCommand);
         }
-        return new ReceivedCommand(communicationManager);
+        return new ReceivedCommand();
     }
 
     /**
@@ -384,6 +267,8 @@ public class CmdMessenger {
     public ReceivedCommand sendCommandSync(SendCommand sendCommand, SendQueue sendQueueState)
     {
         // Directly call execute command
+        connectionManager.write(sendCommand.commandString());
+
         ReceivedCommand resultSendCommand = communicationManager.executeSendCommand(sendCommand, sendQueueState);
         invokeNewLineEvent(newLineSent, new CommandEventArgs(sendCommand));
         return resultSendCommand;

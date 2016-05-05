@@ -19,20 +19,8 @@ public class ReceivedCommand extends Command {
     public void setRawString(String rawString) {
         this.rawString = rawString;}
 
-    /**
-     * Default constructor.
-     */
-    public ReceivedCommand()
-    {
-    }
-
-    /**
-     * Constructor.
-     * @param communicationManager communicationManager
-     */
-    public ReceivedCommand(CommunicationManager communicationManager)
-    {
-        this.communicationManager = communicationManager;
+    public ReceivedCommand() {
+        super();
     }
 
     /**
@@ -41,6 +29,7 @@ public class ReceivedCommand extends Command {
      */
     public ReceivedCommand(String[] rawArguments)
     {
+        super();
         setCmdId(rawArguments != null && rawArguments.length !=0 ? Integer.getInteger(rawArguments[0], -1): -1);
         if (getCmdId() < 0) return;
         if (rawArguments.length > 1)
@@ -49,16 +38,6 @@ public class ReceivedCommand extends Command {
             System.arraycopy(rawArguments, 1, array, 0, array.length);
             cmdArgs.addAll(Arrays.asList(array));
         }
-    }
-
-    /**
-     * Constructor.
-     * @param rawArguments All command arguments, first one is command ID
-     * @param communicationManager communicationManager
-     */
-    public ReceivedCommand(String[] rawArguments, CommunicationManager communicationManager) {
-        this(rawArguments);
-        this.communicationManager = communicationManager;
     }
 
     /**
@@ -193,12 +172,9 @@ public class ReceivedCommand extends Command {
      */
     public double readDoubleArg()
     {
-        if (communicationManager == null)
-            throw new NullPointerException("communicationManager was not set for command.");
-
         if (next())
         {
-            if (communicationManager.getBoardType() == BoardType.Bit16)
+            if (settings.getBoardType() == BoardType.Bit16)
             {
                 try {
                     float current = Float.parseFloat(cmdArgs.get(parameter));
@@ -263,12 +239,9 @@ public class ReceivedCommand extends Command {
      */
     public double readBinDoubleArg()
     {
-        if (communicationManager == null)
-            throw new NullPointerException("communicationManager was not set for command.");
-
         if (next())
         {
-            if (communicationManager.getBoardType() == BoardType.Bit16)
+            if (settings.getBoardType() == BoardType.Bit16)
             {
                 Float current = BinaryConverter.toFloat(cmdArgs.get(parameter));
                 if (current != null)
@@ -283,7 +256,7 @@ public class ReceivedCommand extends Command {
                 if (current != null)
                 {
                     dumped = true;
-                    return (double)current;
+                    return current;
                 }
             }
         }

@@ -17,17 +17,19 @@ import com.github.pimsturm.commandmessenger.ReceivedCommand;
 import com.github.pimsturm.commandmessenger.SendCommand;
 import com.github.pimsturm.commandmessenger.SendQueue;
 import com.github.pimsturm.commandmessenger.TimeUtils;
+import com.github.pimsturm.commandmessenger.Transport.ITransport;
 import com.github.pimsturm.commandmessenger.UseQueue;
 import com.github.pimsturm.commandmessenger.deviceStatus;
 import com.github.pimsturm.commandmessenger.Mode;
 
+import java.io.UnsupportedEncodingException;
 import java.util.Iterator;
 import java.util.Set;
 
 /**
  * Connection manager for Bluetooth devices
  */
-public class BluetoothConnectionManager {
+public class BluetoothConnectionManager implements ITransport {
     private static final String TAG = "BtConnectionManager";
     // Member fields
     private final BluetoothAdapter mAdapter;
@@ -45,17 +47,24 @@ public class BluetoothConnectionManager {
     public static final int STATE_CONNECTED = 3;  // now connected to a remote device
 
 
-    public IEventHandler connectionFound;
-    public IEventHandler progress; //ConnectionManagerProgressEventArgs
+    private IEventHandler connectionFound;
+    private IEventHandler progress; //ConnectionManagerProgressEventArgs
+
+    public void setConnectionFound(IEventHandler connectionFound) {
+        this.connectionFound = connectionFound;
+    }
+
+    public void setProgress(IEventHandler progress) {
+        this.progress = progress;
+    }
 
     protected Mode connectionManagerMode = Mode.Wait;
 
     private final CmdMessenger cmdMessenger;
-    private final int identifyCommandId;
-    private final String uniqueDeviceId;
 
     private long lastCheckTime;
     private long nextTimeOutCheck;
+    private int watchdogTries;
 
     /**
      * The handler for messages from the connect and connected threads
@@ -74,87 +83,8 @@ public class BluetoothConnectionManager {
         return mState == STATE_CONNECTED;
     }
 
-    /**
-     * Get the timeout for the watchdog
-     * @return number of milliseconds of the timeout
-     */
-    public int getWatchdogTimeout() {
-        return watchdogTimeout;
-    }
 
-    /**
-     * set the timeout of the watchdog
-     * @param timeout number of milliseconds of the timeout
-     */
-    public void setWatchdogTimeout(int timeout) {
-        watchdogTimeout = timeout;
-    }
-
-    private int watchdogTimeout;
-    private int watchdogRetryTimeout;
-
-    public int getWatchdogRetryTimeout() {
-        return watchdogRetryTimeout;
-    }
-
-    public void setWatchdogRetryTimeout(int timeout) {
-        watchdogRetryTimeout = timeout;
-    }
-
-    private int watchdogMaxTries; //uint
-    private int watchdogTries; //uint
-
-    public int getWatchdogMaxTries() {
-        return watchdogMaxTries;
-    }
-
-    public void setWatchdogMaxTries(int tries) {
-        watchdogMaxTries = tries;
-    }
-
-    private boolean watchdogEnabled;
-
-    /**
-     * Enables or disables connection watchdog functionality using identify command and unique device id.
-     *
-     * @param enabled true if the functionality must be enabled.
-     */
-    public void setWatchdogEnabled(boolean enabled) {
-        if (enabled && (uniqueDeviceId == null || uniqueDeviceId.equals(""))) {
-            throw new IllegalArgumentException("Watchdog can't be enabled without Unique Device ID.");
-        }
-        watchdogEnabled = enabled;
-    }
-
-    private boolean deviceScanEnabled;
-
-
-    /**
-     * Enables or disables device scanning.
-     * When disabled, connection manager will try to open connection to the device configured in the setting.
-     * - For SerialConnection this means scanning for (virtual) serial ports,
-     * - For BluetoothConnection this means scanning for a device on RFCOMM level
-     * @param enabled true if device scanning must be enabled.
-     */
-    public void setDeviceScanEnabled(boolean enabled) {
-        deviceScanEnabled = enabled;
-    }
-
-    private boolean persistentSettings;
-
-    public boolean isPersistentSettings() {
-        return persistentSettings;
-    }
-
-    /**
-     * Enables or disables storing of last connection configuration in persistent file.
-     * @param enabled true if the last configuration must be stored.
-     */
-    public void setPersistentSettings(boolean enabled) {
-        persistentSettings = enabled;
-    }
-
-    public BluetoothConnectionManager(CmdMessenger cmdMessenger, int identifyCommandId, String uniqueDeviceId) {
+    public BluetoothConnectionManager(CmdMessenger cmdMessenger) {
         if (cmdMessenger == null)
             throw new NullPointerException("Command Messenger is null.");
 
@@ -163,19 +93,9 @@ public class BluetoothConnectionManager {
         mHandler = cmdMessenger.getmReceiveHandler();
 
         this.cmdMessenger = cmdMessenger;
-        this.identifyCommandId = identifyCommandId;
-        this.uniqueDeviceId = uniqueDeviceId;
 
-        watchdogTimeout = 3000;
-        watchdogRetryTimeout = 1500;
-        watchdogMaxTries = 3;
-        watchdogEnabled = false;
-
-        persistentSettings = false;
-        deviceScanEnabled = true;
-
-        if ((this.uniqueDeviceId == null || this.uniqueDeviceId.equals("")))
-            this.cmdMessenger.attach(identifyCommandId, new onIdentifyResponse());
+        if ((cmdMessenger.getSettings().getUniqueDeviceId() == null || cmdMessenger.getSettings().getUniqueDeviceId().equals("")))
+            this.cmdMessenger.attach(cmdMessenger.getSettings().getIdentifyCommandId(), new onIdentifyResponse());
     }
 
     /**
@@ -216,7 +136,7 @@ public class BluetoothConnectionManager {
             mConnectedThread = null;
         }
 
-        if (deviceScanEnabled) {
+        if (cmdMessenger.getSettings().isDeviceScanEnabled()) {
             startScan();
         } else {
             startConnect();
@@ -283,7 +203,7 @@ public class BluetoothConnectionManager {
         invokeEvent(connectionFound, null);
 
         // Check if the identifier of the device matches
-        if (isArduinoAvailable(watchdogTimeout) == deviceStatus.Available) {
+        if (isArduinoAvailable(cmdMessenger.getSettings().getWatchdogTimeout()) == deviceStatus.Available) {
 
             setState(STATE_CONNECTED);
         } else {
@@ -315,19 +235,30 @@ public class BluetoothConnectionManager {
     /**
      * Write to the ConnectedThread in an unsynchronized manner
      *
-     * @param out The bytes to write
+     * @param value The string to write
      * @see ConnectedThread#write(byte[])
      */
-    public void write(byte[] out) {
-        // Create temporary object
-        ConnectedThread r;
-        // Synchronize a copy of the ConnectedThread
-        synchronized (this) {
-            if (mState != STATE_CONNECTED) return;
-            r = mConnectedThread;
+    public void write(String value) {
+        Log(1, value);
+        if (cmdMessenger.getSettings().getPrintLfCr()) {
+            value += "\r\n";
         }
-        // Perform the write unsynchronized
-        r.write(out);
+        try {
+            byte[] writeBytes = value.getBytes("ISO-8859-1");
+
+            // Create temporary object
+            ConnectedThread r;
+            // Synchronize a copy of the ConnectedThread
+            synchronized (this) {
+                if (mState != STATE_CONNECTED) return;
+                r = mConnectedThread;
+            }
+            // Perform the write unsynchronized
+            r.write(writeBytes);
+        } catch (UnsupportedEncodingException e) {
+            Log.d(TAG, "Unsupported character set");
+            Log(1, "Unsupported character set");
+        }
     }
 
     /**
@@ -367,7 +298,7 @@ public class BluetoothConnectionManager {
     private class onIdentifyResponse implements IMessengerCallbackFunction {
         @Override
         public void handleMessage(ReceivedCommand responseCommand) {
-            if (responseCommand.getOk() && !(uniqueDeviceId == null || uniqueDeviceId.equals(""))) {
+            if (responseCommand.getOk() && !(cmdMessenger.getSettings().getUniqueDeviceId() == null || cmdMessenger.getSettings().getUniqueDeviceId().equals(""))) {
                 validateDeviceUniqueId(responseCommand);
             }
 
@@ -389,14 +320,18 @@ public class BluetoothConnectionManager {
      * @return Check result.
      */
     private deviceStatus isArduinoAvailable(int timeOut) {
-        SendCommand challengeCommand = new SendCommand(identifyCommandId, identifyCommandId, timeOut);
+
+        return deviceStatus.Available;
+        /*
+        SendCommand challengeCommand = new SendCommand(cmdMessenger.getSettings().getIdentifyCommandId(), cmdMessenger.getSettings().getIdentifyCommandId(), timeOut);
         ReceivedCommand responseCommand = cmdMessenger.sendCommand(challengeCommand, SendQueue.InFrontQueue, ReceiveQueue.Default, UseQueue.BypassQueue);
 
-        if (responseCommand.getOk() && !(uniqueDeviceId == null || uniqueDeviceId.equals(""))) {
+        if (responseCommand.getOk() && !(cmdMessenger.getSettings().getUniqueDeviceId() == null || cmdMessenger.getSettings().getUniqueDeviceId().equals(""))) {
             return validateDeviceUniqueId(responseCommand) ? deviceStatus.Available : deviceStatus.IdentityMismatch;
         }
 
         return responseCommand.getOk() ? deviceStatus.Available : deviceStatus.NotAvailable;
+        */
     }
 
     /**
@@ -418,7 +353,7 @@ public class BluetoothConnectionManager {
     }
 
     private boolean validateDeviceUniqueId(ReceivedCommand responseCommand) {
-        boolean valid = uniqueDeviceId.equals(responseCommand.readStringArg());
+        boolean valid = cmdMessenger.getSettings().getUniqueDeviceId().equals(responseCommand.readStringArg());
         if (!valid) {
             Log(3, "Invalid device response. Device ID mismatch.");
         }
@@ -428,27 +363,13 @@ public class BluetoothConnectionManager {
 
 
     /**
-     * disconnect from Arduino
-     *
-     * @return true if successfully disconnected
-     */
-    private boolean disconnect() {
-        if (mState == STATE_CONNECTED) {
-            mState = STATE_NONE;
-            return cmdMessenger.disconnect();
-        }
-
-        return true;
-    }
-
-    /**
      * start watchdog. Will check if connection gets interrupted
      */
     private void startWatchDog() {
         if (connectionManagerMode != Mode.Watchdog && mState == STATE_CONNECTED) {
             Log(1, "Starting Watchdog.");
             lastCheckTime = TimeUtils.millis;
-            nextTimeOutCheck = lastCheckTime + watchdogTimeout;
+            nextTimeOutCheck = lastCheckTime + cmdMessenger.getSettings().getWatchdogTimeout();
             watchdogTries = 0;
 
             connectionManagerMode = Mode.Watchdog;

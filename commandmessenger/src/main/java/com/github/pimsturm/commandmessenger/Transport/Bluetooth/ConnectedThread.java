@@ -61,8 +61,11 @@ public class ConnectedThread extends Thread {
                 // Read from the InputStream
                 bytes = mInStream.read(buffer);
 
+                // Convert the bytes to a string
+                String receivedData = new String(buffer, 0, bytes, "ISO-8859-1");
+
                 // Send the obtained bytes to the UI Activity
-                mHandler.obtainMessage(Constants.MESSAGE_READ, bytes, -1, buffer)
+                mHandler.obtainMessage(Constants.MESSAGE_READ, receivedData)
                         .sendToTarget();
             } catch (IOException e) {
                 Log.e(TAG, "disconnected", e);

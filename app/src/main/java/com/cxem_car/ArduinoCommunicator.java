@@ -3,7 +3,6 @@ package com.cxem_car;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.github.pimsturm.commandmessenger.BoardType;
 import com.github.pimsturm.commandmessenger.CmdMessenger;
 import com.github.pimsturm.commandmessenger.CommandEventArgs;
 import com.github.pimsturm.commandmessenger.ConnectionManagerProgressEventArgs;
@@ -12,11 +11,6 @@ import com.github.pimsturm.commandmessenger.IMessengerCallbackFunction;
 import com.github.pimsturm.commandmessenger.ReceivedCommand;
 import com.github.pimsturm.commandmessenger.SendCommand;
 import com.github.pimsturm.commandmessenger.EventHandler;
-import com.github.pimsturm.commandmessenger.Transport.Bluetooth.BluetoothConnectionManager;
-import com.github.pimsturm.commandmessenger.Transport.Bluetooth.BluetoothConnectionStorer;
-import com.github.pimsturm.commandmessenger.Transport.Bluetooth.BluetoothTransport;
-import com.github.pimsturm.commandmessenger.Transport.Bluetooth.BluetoothUtils;
-import com.github.pimsturm.commandmessenger.Transport.ITransport;
 
 enum Command {
     kLeftMotor,
@@ -39,22 +33,7 @@ public final class ArduinoCommunicator {
     private static final int PWM_MOTOR_LEFT = 255;
     private static final int PWM_MOTOR_RIGHT = 255;
 
-    private ITransport transport;
     private CmdMessenger cmdMessenger;
-    private BluetoothConnectionManager connectionManager;
-
-    /**
-     * Gets or sets the number of seconds after which the car stops.
-     */
-    private static int timeOut;
-
-    public static int getTimeOut() {
-        return timeOut;
-    }
-
-    public static void setTimeOut(int newTimeOut) {
-        timeOut = newTimeOut;
-    }
 
     private ArduinoCommunicator() {
     }
@@ -68,13 +47,12 @@ public final class ArduinoCommunicator {
 
     public void SetupChannel() {
         Log.d(TAG, "Setup channel");
-        // Now let us set the transport layer
-        transport = GetTransport();
 
-        // Initialize the command messenger with the chosen transport layer
-        // set if it is communicating with a 16- or 32-bit Arduino board
-        cmdMessenger = new CmdMessenger(transport, BoardType.Bit16);
-        cmdMessenger.setPrintLfCr(false);
+        cmdMessenger = new CmdMessenger();
+        cmdMessenger.getSettings().setUniqueDeviceId(COMMUNICATION_IDENTIFIER);
+        // Enable watchdog functionality.
+        cmdMessenger.getSettings().setWatchdogEnabled(true);
+        cmdMessenger.getSettings().setDeviceScanEnabled(false);
 
         // Attach the callbacks to the Command Messenger
         AttachCommandCallBacks();
@@ -85,10 +63,8 @@ public final class ArduinoCommunicator {
         // Attach to newLineSent for logging purposes
         cmdMessenger.newLineSent = new NewLineSent();
 
-        connectionManager = GetConnectionManager();
-
         // Show all connection progress in the output window
-        connectionManager.progress = new EventHandler<ConnectionManagerProgressEventArgs>() {
+        cmdMessenger.getConnectionManager().setProgress(new EventHandler<ConnectionManagerProgressEventArgs>() {
             @Override
             public void invokeEvent(Object sender, ConnectionManagerProgressEventArgs eventArgs) {
                 if (eventArgs.getLevel() <= 3) {
@@ -97,9 +73,9 @@ public final class ArduinoCommunicator {
                 }
             }
 
-        };
+        });
 
-        connectionManager.connectionFound = new EventHandler<CommandEventArgs>() {
+        cmdMessenger.getConnectionManager().setConnectionFound(new EventHandler<CommandEventArgs>() {
             @Override
             public void invokeEvent(Object sender, CommandEventArgs eventArgs) {
                 //TODO: enable the control buttons on the form
@@ -112,47 +88,10 @@ public final class ArduinoCommunicator {
                 cmdMessenger.sendCommand(command);
 
             }
-        };
+        });
 
         // Finally - activate connection manager
-        connectionManager.startConnectionManager();
-
-    }
-
-    private BluetoothConnectionManager GetConnectionManager() {
-        // The Connection manager is capable of storing connection settings, in order to reconnect more quickly
-        // the next time the application is run. You can determine yourself where and how to store the settings
-        // by supplying a class, that implements ISerialConnectionStorer. For convenience, CmdMessenger provides
-        //  simple binary file storage functionality
-        BluetoothConnectionStorer bluetoothConnectionStorer = new BluetoothConnectionStorer("BluetoothConnectionManagerSettings.cfg");
-
-        // It is easier to let the BluetoothConnectionManager connect for you.
-        // It will:
-        //  - Auto discover Bluetooth devices
-        //  - If not yet paired, try to pair using the default Bluetooth passwords
-        //  - See if the device responds with the correct CommunicationIdentifier
-        BluetoothConnectionManager connectionManager = new BluetoothConnectionManager(
-                cmdMessenger,
-                Command.kIdentify.ordinal(),
-                COMMUNICATION_IDENTIFIER);
-
-        // Enable watchdog functionality.
-        connectionManager.setWatchdogEnabled(true);
-        connectionManager.setDeviceScanEnabled(false);
-
-        return connectionManager;
-
-    }
-
-    private static ITransport GetTransport() {
-        BluetoothTransport bluetoothTransport = new BluetoothTransport();
-        // If you know your bluetooth device and you have already paired
-        // you can directly connect to your Bluetooth Device by address.
-        // Under windows you can find the address at:
-        //    Control Panel >> All Control Panel Items >> Devices and Printers
-        //    Right-click on device >> properties >> Unique id
-        bluetoothTransport.setCurrentBluetoothDeviceInfo(BluetoothUtils.deviceByAddress("30:15:01:07:11:28"));
-        return bluetoothTransport;
+        cmdMessenger.getConnectionManager().startConnectionManager();
 
     }
 
@@ -268,7 +207,7 @@ public final class ArduinoCommunicator {
         public void handleMessage(ReceivedCommand arguments) {
             Log.d(TAG, "Settings received from Arduino.");
 
-            timeOut = arguments.readInt16Arg();
+            int timeOut = arguments.readInt16Arg();
 
             Log.d(TAG, "Timeout: " + timeOut);
         }
@@ -298,18 +237,12 @@ public final class ArduinoCommunicator {
      * Exit function
      */
     public void Exit() {
-        if (connectionManager != null)
-            connectionManager.stopConnectionManager();
-
-        // Stop listening
-        cmdMessenger.disconnect();
+        if (cmdMessenger.getConnectionManager() != null)
+            cmdMessenger.getConnectionManager().stopConnectionManager();
 
         // dispose Command Messenger
-        cmdMessenger.dispose();
+        cmdMessenger = null;
 
-        // dispose Serial Port object
-        //transport.dispose();
-        transport = null;
 
         Log.d(TAG, "Exit from Arduino Communicator");
     }

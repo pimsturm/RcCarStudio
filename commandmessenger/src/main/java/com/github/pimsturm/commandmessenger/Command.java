@@ -6,11 +6,8 @@ import java.util.ArrayList;
  * A command to be send by CmdMessenger
  */
 public class Command {
-    CommunicationManager communicationManager;
-    public void setCommunicationManager(CommunicationManager communicationManager) {
-        this.communicationManager = communicationManager;
-    }
 
+    protected Settings settings;
     protected ArrayList<String> cmdArgs = new ArrayList<String>(); // The argument list of the command, first one is the command ID
 
     private int cmdId;
@@ -66,6 +63,7 @@ public class Command {
         cmdId = -1;
         cmdArgs = new ArrayList<String>();
         timeStamp = TimeUtils.millis;
+        settings = Settings.getInstance();
     }
 
     /**
@@ -82,16 +80,13 @@ public class Command {
      */
     public String commandString()
     {
-        if (communicationManager == null)
-            throw new IllegalStateException("communicationManager was not set for command.");
-
         StringBuilder commandString = new StringBuilder(Integer.toString(cmdId));
 
         for (String argument : getArguments())
         {
-            commandString.append(communicationManager.getFieldSeparator()).append(argument);
+            commandString.append(settings.getFieldSeparator()).append(argument);
         }
-        commandString.append(communicationManager.getCommandSeparator());
+        commandString.append(settings.getCommandSeparator());
 
         return commandString.toString();
     }
